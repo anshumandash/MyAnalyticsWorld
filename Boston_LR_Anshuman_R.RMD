@@ -1,0 +1,92 @@
+---
+title: "Boston_LR_Anshuman"
+author: "Anshuman Dash"
+date: "June 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Load all the libraries
+```{r}
+library(MASS)
+library(sandwich)
+library(lmtest)
+library(car)
+
+```
+#Load the Boston Data file, Boston file is avaliable in MASS library
+Explore the Boston Data
+```{r}
+Bostondf= Boston
+
+#Explore Boston Data
+head(Bostondf)
+str(Bostondf)
+str(Bostondf$zn)
+summary(Bostondf)
+
+```
+
+#Check the missing values no missing values--- Result: No missing values in the data
+```{r}
+sum(!complete.cases(Boston))
+
+```
+
+#check the co-relation matrix with target: lstat is highly co-related and Chas is leaast corelated
+
+```{r}
+sort(abs(cor(Bostondf$medv,Bostondf)))
+cor(Bostondf)
+```
+
+#Build the linear model with all the 13 predictors : Adjusted R-squared:  0.7338  but predictors have Multicolinearity
+```{r}
+model=lm(medv~., data= Bostondf)
+vif_data<- lm(medv~., data= Bostondf)
+sort(vif(vif_data))
+summary(model)
+```
+# Different model built looking at the P-Values and the correlation of independent variables with dependent variable
+# Removed low corelated independent variables age and Indus
+```{r}
+model1 <-lm(formula = medv ~ chas + black + ptratio + rm + lstat, data = Bostondf)
+sort(vif(model1))
+summary(model1)
+```
+
+#Using PCA and building the model 
+```{r}
+library(caret)
+
+trans = preProcess(Boston[,0:13],method = c("BoxCox","center","scale","pca"))
+PC = predict(trans, Boston[,0:13])
+X=trans$rotation
+X
+str(PC)
+X1= PC
+X1['medv']= Boston['medv']
+```
+
+```{r}
+plot(PC)
+```
+
+```{r}
+modelpca=lm(medv~PC1+PC2+PC3+PC4+PC5+PC7+PC8+PC9, data= X1)
+vif_data<- lm(medv~PC1+PC2+PC3+PC4, data=X1)
+sort(vif(vif_data))
+summary(modelpca)
+```
+# With a R-Squared value of 0.753, it shows that the model is a good predictor 
+
+# Remove heteroscedasticity
+```{r}
+bptest(modelpca)
+vcovHC(modelpca, omega=NULL, type="HC4")
+#Below is the most important code
+coeftest(modelpca, df=Inf, vcov=vcovHC(model,type="HC4"))
+```
+
